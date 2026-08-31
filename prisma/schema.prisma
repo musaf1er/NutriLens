@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String        @id @default(cuid())
+  name            String        @default("User")
+  email           String?       @unique
+  dailyCalorieGoal Int          @default(2000)
+  dailyProteinGoal Int          @default(150)
+  dailyCarbsGoal   Int          @default(250)
+  dailyFatGoal     Int          @default(65)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  meals           Meal[]
+  weightEntries   WeightEntry[]
+  foodScans       FoodScan[]
+}
+
+model Meal {
+  id            String     @id @default(cuid())
+  userId        String
+  name          String
+  mealType      String     @default("SNACK") // BREAKFAST, LUNCH, DINNER, SNACK
+  totalCalories Float      @default(0)
+  totalProtein  Float      @default(0)
+  totalCarbs    Float      @default(0)
+  totalFat      Float      @default(0)
+  totalFiber    Float      @default(0)
+  date          DateTime   @default(now())
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items         MealItem[]
+  scan          FoodScan?  @relation(fields: [scanId], references: [id])
+  scanId        String?
+
+  @@index([userId, date])
+}
+
+model MealItem {
+  id          String @id @default(cuid())
+  mealId      String
+  foodName    String
+  calories    Float  @default(0)
+  protein     Float  @default(0)
+  carbs       Float  @default(0)
+  fat         Float  @default(0)
+  fiber       Float  @default(0)
+  servingSize Float  @default(1)
+  servingUnit String @default("serving")
+  quantity    Float  @default(1)
+  meal        Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+}
+
+model WeightEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  weight    Float
+  unit      String   @default("kg")
+  date      DateTime @default(now())
+  note      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+model FoodScan {
+  id             String          @id @default(cuid())
+  userId         String
+  imageData      String          // base64 encoded image
+  status         String          @default("PENDING") // PENDING, ANALYZING, COMPLETED, FAILED
+  overallConfidence Float?
+  errorMessage   String?
+  createdAt      DateTime        @default(now())
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  detections     FoodDetection[]
+  meals          Meal[]
+
+  @@index([userId, createdAt])
+}
+
+model FoodDetection {
+  id              String   @id @default(cuid())
+  scanId          String
+  foodName        String
+  calories        Float    @default(0)
+  protein         Float    @default(0)
+  carbs           Float    @default(0)
+  fat             Float    @default(0)
+  fiber           Float    @default(0)
+  estimatedServing String  @default("1 serving")
+  confidence      Float    @default(0)
+  isConfirmed     Boolean  @default(false)
+  scan            FoodScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+}
