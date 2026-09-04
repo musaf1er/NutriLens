@@ -1,66 +1,75 @@
-import json
 import os
-import random
 from pathlib import Path
+from urllib.request import urlretrieve
 
-import torch
+import numpy as np
+import onnxruntime as ort
+
+
+MODEL_URL = os.getenv(
+    "FOOD_MODEL_URL",
+    "https://media.githubusercontent.com/media/STMicroelectronics/stm32ai-modelzoo/"
+    "main/image_classification/efficientnetv2/ST_pretrainedmodel_public_dataset/food101/"
+    "efficientnetv2b0_224_fft/efficientnetv2b0_224_fft_qdq_int8.onnx",
+)
+MODEL_PATH = Path(os.getenv("FOOD_MODEL_PATH", "/tmp/nutrilens-food101.onnx"))
+
+FOOD101_LABELS = (
+    "apple_pie", "baby_back_ribs", "baklava", "beef_carpaccio", "beef_tartare",
+    "beet_salad", "beignets", "bibimbap", "bread_pudding", "breakfast_burrito",
+    "bruschetta", "caesar_salad", "cannoli", "caprese_salad", "carrot_cake",
+    "ceviche", "cheesecake", "cheese_plate", "chicken_curry", "chicken_quesadilla",
+    "chicken_wings", "chocolate_cake", "chocolate_mousse", "churros", "clam_chowder",
+    "club_sandwich", "crab_cakes", "creme_brulee", "croque_madame", "cup_cakes",
+    "deviled_eggs", "donuts", "dumplings", "edamame", "eggs_benedict", "escargots",
+    "falafel", "filet_mignon", "fish_and_chips", "foie_gras", "french_fries",
+    "french_onion_soup", "french_toast", "fried_calamari", "fried_rice",
+    "frozen_yogurt", "garlic_bread", "gnocchi", "greek_salad",
+    "grilled_cheese_sandwich", "grilled_salmon", "guacamole", "gyoza", "hamburger",
+    "hot_and_sour_soup", "hot_dog", "huevos_rancheros", "hummus", "ice_cream",
+    "lasagna", "lobster_bisque", "lobster_roll_sandwich", "macaroni_and_cheese",
+    "macarons", "miso_soup", "mussels", "nachos", "omelette", "onion_rings",
+    "oysters", "pad_thai", "paella", "pancakes", "panna_cotta", "peking_duck", "pho",
+    "pizza", "pork_chop", "poutine", "prime_rib", "pulled_pork_sandwich", "ramen",
+    "ravioli", "red_velvet_cake", "risotto", "samosa", "sashimi", "scallops",
+    "seaweed_salad", "shrimp_and_grits", "spaghetti_bolognese", "spaghetti_carbonara",
+    "spring_rolls", "steak", "strawberry_shortcake", "sushi", "tacos", "takoyaki",
+    "tiramisu", "tuna_tartare", "waffles",
+)
 
 
 class FoodPredictor:
-    """Loads a TorchScript Food-101 classifier once when the service starts, or falls back to mock mode."""
+    """Run a compact, quantized EfficientNetV2 Food-101 model on CPU."""
 
     def __init__(self):
-        model_path = os.getenv("FOOD_MODEL_PATH")
-        labels_path = os.getenv("FOOD_LABELS_PATH", "labels.json")
-        self.use_mock = not model_path or not os.path.exists(model_path)
-        
-        if self.use_mock:
-            # Mock mode: return random food for testing without a model
-            self.labels = {
-                "0": "pizza", "1": "apple_pie", "2": "hamburger", "3": "fried_rice",
-                "4": "chicken_wings", "5": "sushi", "6": "spaghetti_bolognese", "7": "ice_cream",
-                "8": "caesar_salad", "9": "french_fries", "10": "bacon", "11": "baklava",
-                "12": "banana_split", "13": "beef_carpaccio", "14": "beef_steak", "15": "beet_salad",
-                "16": "beignets", "17": "bibimbap", "18": "bread_pudding", "19": "breakfast_burrito",
-                "20": "bruschetta", "21": "cake", "22": "calzone", "23": "cannoli",
-                "24": "caprese_salad", "25": "carrot_cake", "26": "ceviche", "27": "cheese_burger",
-                "28": "cheesecake", "29": "chicken_curry", "30": "chicken_parmesan", "31": "chicken_quesadilla",
-                "32": "chicken_tikka_masala", "33": "chocolate_cake", "34": "chocolate_mousse", "35": "churros",
-                "36": "clam_chowder", "37": "club_sandwich", "38": "cobb_salad", "39": "cookies_and_cream",
-                "40": "crab_cakes", "41": "creme_brulee", "42": "crepes", "43": "crispy_chicken",
-                "44": "croissant", "45": "croque_monsieur", "46": "crudites", "47": "cucumber_salad",
-                "48": "cupcakes", "49": "deviled_eggs", "50": "dosa", "51": "double_chocolate_brownie",
-                "52": "dumplings", "53": "edamame", "54": "eggs_benedict", "55": "eggplant_parmesan",
-                "56": "escargots", "57": "falafel", "58": "falafels", "59": "filet_mignon",
-                "60": "fish_and_chips", "61": "fish_tacos", "62": "foie_gras", "63": "fried_calamari",
-                "64": "fried_egg", "65": "fried_green_tomatoes", "66": "fried_okra", "67": "fried_squid",
-                "68": "fruit_salad", "69": "garlic_bread", "70": "gnocchi", "71": "goat_cheese_salad",
-                "72": "grapes", "73": "greek_salad", "74": "green_beans", "75": "green_salad",
-                "76": "grilled_salmon", "77": "grilled_vegetables", "78": "guacamole", "79": "gyro",
-                "80": "halibut", "81": "ham_and_cheese_croissant", "82": "hard_boiled_egg", "83": "hash_browns",
-                "84": "heirloom_tomato_salad", "85": "hexagon_cheese", "86": "honey_vinaigrette_chicken",
-                "87": "hot_and_sour_soup", "88": "hot_dog", "89": "huevos_rancheros", "90": "hummus",
-                "91": "idiyappam", "92": "inari", "93": "indian_food", "94": "italian_food", "95": "jalapeno_poppers",
-            }
+        self._ensure_model()
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = max(1, int(os.getenv("ONNX_NUM_THREADS", "2")))
+        self.session = ort.InferenceSession(
+            str(MODEL_PATH),
+            sess_options=options,
+            providers=["CPUExecutionProvider"],
+        )
+        self.input_name = self.session.get_inputs()[0].name
+
+    @staticmethod
+    def _ensure_model():
+        if MODEL_PATH.exists() and MODEL_PATH.stat().st_size > 1_000_000:
             return
-        
-        if not model_path:
-            raise RuntimeError("FOOD_MODEL_PATH is not configured.")
-        self.model = torch.jit.load(model_path, map_location="cpu").eval()
-        labels_file = Path(labels_path)
-        if not labels_file.exists():
-            raise RuntimeError("Food-101 labels file is missing.")
-        self.labels = json.loads(labels_file.read_text(encoding="utf-8"))
+        MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+        partial_path = MODEL_PATH.with_suffix(".part")
+        urlretrieve(MODEL_URL, partial_path)
+        if partial_path.stat().st_size <= 1_000_000:
+            partial_path.unlink(missing_ok=True)
+            raise RuntimeError("Downloaded Food-101 model is incomplete.")
+        partial_path.replace(MODEL_PATH)
 
     def predict(self, image_tensor):
-        if self.use_mock:
-            # Mock mode: return a random food with realistic confidence
-            food_label = random.choice(list(self.labels.values()))
-            confidence = round(random.uniform(0.75, 0.99), 4)
-            return food_label, confidence
-        
-        # Real model inference
-        with torch.inference_mode():
-            probabilities = torch.softmax(self.model(image_tensor), dim=1)[0]
-            confidence, index = torch.max(probabilities, dim=0)
-        return self.labels[str(index.item())], round(float(confidence), 4)
+        scores = self.session.run(None, {self.input_name: image_tensor})[0][0]
+        scores = np.clip(scores.astype(np.float32), 0.0, None)
+        total = float(scores.sum())
+        if total <= 0:
+            raise RuntimeError("Food-101 model returned invalid scores.")
+        probabilities = scores / total
+        index = int(np.argmax(probabilities))
+        return FOOD101_LABELS[index], round(float(probabilities[index]), 4)

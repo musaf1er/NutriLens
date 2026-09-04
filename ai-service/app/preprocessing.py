@@ -1,23 +1,24 @@
 from io import BytesIO
 
+import numpy as np
 from PIL import Image, UnidentifiedImageError
-from torchvision import transforms
 
 
 IMAGE_SIZE = 224
 
 
 def prepare_image(contents: bytes):
-    """Validate and normalize an uploaded image for the classifier."""
+    """Decode, letterbox, and normalize an image for EfficientNetV2 Food-101."""
     try:
         image = Image.open(BytesIO(contents)).convert("RGB")
     except (UnidentifiedImageError, OSError) as exc:
         raise ValueError("Unable to process image.") from exc
 
-    transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(IMAGE_SIZE),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-    ])
-    return transform(image).unsqueeze(0)
+    image.thumbnail((IMAGE_SIZE, IMAGE_SIZE), Image.Resampling.NEAREST)
+    canvas = Image.new("RGB", (IMAGE_SIZE, IMAGE_SIZE))
+    offset = ((IMAGE_SIZE - image.width) // 2, (IMAGE_SIZE - image.height) // 2)
+    canvas.paste(image, offset)
+
+    image_array = np.asarray(canvas, dtype=np.float32)
+    image_array = (image_array / 127.5) - 1.0
+    return np.transpose(image_array, (2, 0, 1))[None, ...]

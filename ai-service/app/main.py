@@ -1,23 +1,32 @@
-import os
-
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
-from .preprocessing import prepare_image
-from .predictor import FoodPredictor
+from preprocessing import prepare_image
+from predictor import FoodPredictor
 
 
 app = FastAPI(title="NutriLens Food Classification Service")
 predictor = None
+startup_error = None
 
 
 @app.on_event("startup")
 def load_model():
-    global predictor
+    global predictor, startup_error
     try:
         predictor = FoodPredictor()
-    except RuntimeError as e:
-        print(f"⚠️  {e} — Running in mock mode (random food predictions for testing)")
-        predictor = FoodPredictor()
+        startup_error = None
+        print("Food-101 model loaded and ready")
+    except Exception as exc:
+        predictor = None
+        startup_error = str(exc)
+        print(f"Food-101 model failed to load: {exc}")
+
+
+@app.get("/health")
+def health():
+    if predictor is None:
+        raise HTTPException(status_code=503, detail=startup_error or "Model is initializing.")
+    return {"status": "ready", "model": "efficientnetv2b0-food101-int8"}
 
 
 @app.post("/predict")
