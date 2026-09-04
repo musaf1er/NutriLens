@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('food_histories', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('food_id')->constrained()->restrictOnDelete();
+            $table->foreignId('food_id')->constrained('foods')->restrictOnDelete();
             $table->string('image_path')->nullable();
             $table->decimal('confidence', 5, 4);
             $table->decimal('portion_gram', 8, 2);
