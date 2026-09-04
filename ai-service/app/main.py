@@ -1,7 +1,7 @@
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
-from preprocessing import prepare_image
-from predictor import FoodPredictor
+from .preprocessing import prepare_image
+from .predictor import FoodPredictor
 
 
 app = FastAPI(title="NutriLens Food Classification Service")
