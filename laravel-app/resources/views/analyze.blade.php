@@ -1,1 +1,51 @@
-@extends('layouts.app') @section('content')<div class="row justify-content-center"><div class="col-lg-8"><h1 class="h2 mb-4">Analyze Food</h1><div class="card mb-4"><div class="card-body"><form method="post" action="{{ route('analyze.predict') }}" enctype="multipart/form-data">@csrf<label class="form-label">Food image</label><input type="file" name="image" accept=".jpg,.jpeg,.png" class="form-control mb-2" required><div class="form-text mb-3">JPG, JPEG, or PNG. Maximum 5 MB.</div><button class="btn btn-success">Analyze Image</button></form></div></div>@isset($food)<div class="card"><div class="card-body"><h2 class="h4">Detected Food: {{ $food->food_name }}</h2><p class="text-secondary">Prediction confidence: {{ number_format($confidence * 100, 1) }}%</p><p>Calories per 100g: <strong>{{ number_format($food->calories_per_100g, 0) }} kcal</strong></p><form method="post" action="{{ route('analyze.save') }}">@csrf<input type="hidden" name="food_id" value="{{ $food->id }}"><input type="hidden" name="confidence" value="{{ $confidence }}"><input type="hidden" name="image_path" value="{{ $imagePath }}"><label class="form-label">Portion (grams)</label><input type="number" name="portion_gram" min="1" step="0.1" class="form-control mb-3" required><button class="btn btn-success">Save to History</button></form></div></div>@endisset</div></div>@endsection
+@extends('layouts.app')
+
+@section('content')
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h1 class="h2 mb-4">Analyze Food</h1>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="post" action="{{ route('analyze.predict') }}" enctype="multipart/form-data">
+                    @csrf
+                    <label class="form-label">Food image</label>
+                    <input type="file" name="image" accept=".jpg,.jpeg,.png" class="form-control mb-2" required>
+                    <div class="form-text mb-3">JPG, JPEG, or PNG. Maximum 5 MB.</div>
+                    <button class="btn btn-success">Analyze Image</button>
+                </form>
+            </div>
+        </div>
+
+        @if(isset($food))
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h4">Detected Food: {{ $food->food_name }}</h2>
+                    <p class="text-secondary">Prediction confidence: {{ number_format($confidence * 100, 1) }}%</p>
+                    <p>Calories per 100g: <strong>{{ number_format($food->calories_per_100g, 0) }} kcal</strong></p>
+
+                    <form method="post" action="{{ route('analyze.save') }}">
+                        @csrf
+                        <input type="hidden" name="food_id" value="{{ $food->id }}">
+                        <input type="hidden" name="confidence" value="{{ $confidence }}">
+                        <input type="hidden" name="image_path" value="{{ $imagePath }}">
+                        <label class="form-label">Portion (grams)</label>
+                        <input type="number" name="portion_gram" min="1" step="0.1" class="form-control mb-3" required>
+                        <button class="btn btn-success">Save to History</button>
+                    </form>
+                </div>
+            </div>
+        @elseif(isset($prediction))
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h4">Detected Food: {{ $prediction }}</h2>
+                    <p class="text-secondary mb-2">Prediction confidence: {{ number_format($confidence * 100, 1) }}%</p>
+                    <div class="alert alert-warning mb-0">
+                        The food was detected, but detailed information for this Food-101 category has not been added yet.
+                    </div>
+                </div>
+            </div>
+        @endif
+    </div>
+</div>
+@endsection
