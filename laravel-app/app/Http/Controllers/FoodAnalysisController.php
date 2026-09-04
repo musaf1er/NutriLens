@@ -23,10 +23,19 @@ class FoodAnalysisController extends Controller
         if (! $response->successful() || ! $response->json('success')) {
             return back()->withErrors(['image' => $response->json('message', $response->json('detail', 'Unable to identify the food.'))]);
         }
-        $food = Food::where('food101_label', $response->json('prediction'))->first();
-        if (! $food) return back()->withErrors(['image' => 'Nutrition information for this food is not available.']);
+        $prediction = (string) $response->json('prediction');
+        $confidence = (float) $response->json('confidence');
+        $food = Food::where('food101_label', $prediction)->first();
+
+        if (! $food) {
+            return view('analyze', [
+                'prediction' => ucwords(str_replace('_', ' ', $prediction)),
+                'confidence' => $confidence,
+            ]);
+        }
+
         $path = $image->store('food-images', 'public');
-        return view('analyze', ['food' => $food, 'confidence' => (float) $response->json('confidence'), 'imagePath' => $path]);
+        return view('analyze', ['food' => $food, 'confidence' => $confidence, 'imagePath' => $path]);
     }
 
     public function save(Request $request)
