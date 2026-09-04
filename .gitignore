@@ -1,40 +1,105 @@
-# dependencies
-/node_modules
+# =========================
+# ROOT / OLD NEXT.JS FILES
+# =========================
+
+/node_modules/
 /.pnp
 .pnp.*
 .yarn/install-state.gz
 
-# testing
 /coverage
 
-# next.js
 /.next/
 /out/
-
-# production
 /build
 
-# misc
-.DS_Store
-*.pem
+/.vercel
 
-# debug
+*.tsbuildinfo
+next-env.d.ts
+
+# Ignore old root source that is not part of NutriLens deployment
+/src/
+/prisma/
+/package.json
+/package-lock.json
+/next.config.mjs
+/postcss.config.mjs
+/tsconfig.json
+
+
+# =========================
+# ENVIRONMENT FILES
+# =========================
+
+.env
+.env.*
+!.env.example
+
+/laravel-app/.env
+/laravel-app/.env.*
+!/laravel-app/.env.example
+
+
+# =========================
+# LARAVEL
+# =========================
+
+/laravel-app/vendor/
+/laravel-app/node_modules/
+/laravel-app/public/build/
+/laravel-app/public/hot
+/laravel-app/public/storage
+/laravel-app/storage/*.key
+/laravel-app/storage/logs/*.log
+/laravel-app/.phpunit.cache/
+/laravel-app/.phpunit.result.cache
+
+
+# =========================
+# PYTHON / FASTAPI
+# =========================
+
+/ai-service/.venv/
+/ai-service/venv/
+/ai-service/env/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+
+# =========================
+# MODEL / DATASET
+# =========================
+
+# Do not upload the full Food-101 dataset
+/ai-service/data/
+/ai-service/dataset/
+/ai-service/datasets/
+
+# Add specific large model files here only if they can be downloaded
+# automatically during deployment.
+# Example:
+# /ai-service/models/*.pth
+# /ai-service/models/*.pt
+
+
+# =========================
+# IDE / OS / DEBUG
+# =========================
+
+.vscode/
+.idea/
+.cursor/
+.DS_Store
+Thumbs.db
+
+*.pem
+*.log
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
-# env files
-.env
-.env*.local
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# prisma
-prisma/dev.db
-prisma/dev.db-journal
